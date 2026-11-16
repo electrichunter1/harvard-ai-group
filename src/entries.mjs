@@ -14,7 +14,7 @@ function detailPage(kind, entry) {
     item.id === (entry?.profile || entry?.project));
   const content = entry ? `<p class="intro">${escape(entry.summary)}</p>
     ${entry.image ? `<img class="detail-image" src="/assets/${escape(entry.image)}" alt="${escape(entry.alt)}">` : ''}
-    ${related ? `<p>${entry.profile ? 'Fellow' : 'Fellowship project'} · <a href="${entryPath(related)}">${escape(related.title)}</a></p>` : ''}
+    ${related ? `<p data-entry-related>${entry.profile ? 'Fellow' : 'Fellowship project'} · <a href="${entryPath(related)}">${escape(related.title)}</a></p>` : ''}
     ${entry.link ? `<p><a class="text-link" href="${escape(entry.link)}">${kind === 'event' ? 'Original event announcement' : 'Read the original work'}</a></p>` : ''}` :
     '<p role="status">This entry is currently unavailable.</p>';
   return `<article data-detail="${kind}" data-id="${entry?.id ?? ''}">

@@ -35,11 +35,11 @@ function entryLink(entry) {
   return link(url, entry.title);
 }
 
-function listRow(entry) {
+function listRow(entry, previousLink) {
   const isProfile = entry.kind === 'profile';
   const row = node(isProfile ? 'li' : 'article', '', isProfile ? '' : 'archive-row');
   const title = node('h3');
-  title.append(entryLink(entry));
+  title.append(previousLink ? link(previousLink, entry.title) : entryLink(entry));
   row.dataset.id = entry.id;
   if (entry.date) row.dataset.date = entry.date;
   if (isProfile) {
@@ -65,7 +65,7 @@ function updateList(entries) {
     if (entry.archived) {
       old?.remove();
     } else if (old) {
-      old.replaceWith(listRow(entry));
+      old.replaceWith(listRow(entry, old.querySelector('h3 a')?.href));
     } else {
       items.prepend(listRow(entry));
     }
@@ -105,6 +105,8 @@ function updateDetail(entry) {
   if (href) items.push(link(href, entry.kind === 'event' ? 'Event link' : 'Related link'));
   const oldImage = body.querySelector('img');
   if (oldImage) items.splice(1, 0, oldImage);
+  const related = body.querySelector('[data-entry-related]');
+  if (related) items.push(related);
   body.replaceChildren(...items);
 }
 
