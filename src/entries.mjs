@@ -1,10 +1,8 @@
 import { catalog } from './content.mjs';
+import { escape } from './html.mjs';
 
 export const sections = { event: 'events', project: 'projects', profile: 'team' };
 export const sectionNames = { event: 'Events', project: 'Projects', profile: 'People' };
-export const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-})[char]);
 
 export const entryPath = ({ kind, id }) => '/' + sections[kind] + '/' + id + '/';
 

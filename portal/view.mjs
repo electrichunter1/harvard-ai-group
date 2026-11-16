@@ -1,4 +1,4 @@
-import { escape as e } from '../src/entries.mjs';
+import { escape as e } from '../src/html.mjs';
 
 const labels = { event: 'Event', project: 'Project', profile: 'Profile' };
 const messages = {
@@ -73,12 +73,12 @@ export function dashboard(member, requests, entries, accounts, message) {
     ${board ? published : ''}${member.role === 'owner' ? access : ''}`;
 }
 
-export function editor(kind, entry, submission) {
+export function editor(kind, entry, submission, publicationNote = 'Published content appears on the public website.') {
   const heading = submission ? 'Review request' : entry ? 'Edit ' + labels[kind].toLowerCase() : 'New ' + labels[kind].toLowerCase();
   const data = submission ? JSON.parse(submission.payload) : entry;
   const identifiers = hidden('id', submission?.id ?? entry?.id ?? crypto.randomUUID()) +
     (!submission ? hidden('revision', entry?.revision ?? 0) : '');
-  const support = submission ? 'Submitted by ' + submission.author : 'Published content appears on the public website.';
+  const support = submission ? 'Submitted by ' + submission.author : publicationNote;
   const save = form(submission ? 'review' : 'save',
     identifiers + fields(kind, data) + button(entry && !entry.archived ? 'Save changes' : 'Publish', 'publish'));
   const dismiss = submission ? form('review', identifiers + button('Decline request', 'decline')) :

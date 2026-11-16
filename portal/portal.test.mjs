@@ -15,6 +15,7 @@ const other = 'other@example.test';
 function database() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync(new URL('./migrations/0001_portal.sql', import.meta.url), 'utf8'));
+  sqlite.exec(readFileSync(new URL('./migrations/0002_portal_indexes.sql', import.meta.url), 'utf8'));
   return {
     prepare(sql) {
       const prepared = sqlite.prepare(sql);

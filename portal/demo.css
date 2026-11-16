@@ -1,0 +1,8 @@
+.demo-intro { background: #e9efff; padding-block: 0.9rem; }
+.demo-intro p { margin: 0.25rem 0 0.8rem; }
+.demo-switcher { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.demo-switcher button { background: transparent; color: var(--blue); }
+.demo-switcher button[aria-pressed="true"] { background: var(--blue); color: white; }
+.demo-switcher #reset { border-color: transparent; text-decoration: underline; }
+.demo-intro .demo-guide { margin-top: 0.8rem; margin-bottom: 0.2rem; }
+#workspace-title { scroll-margin-top: 1rem; }

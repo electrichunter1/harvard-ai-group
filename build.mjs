@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pages } from './src/pages.mjs';
 import { controls, contours, ink } from './src/logo.mjs';
+import { css as portalCss } from './portal/view.mjs';
 
 const { values } = parseArgs({ options: { 'pages-base': { type: 'string' }, 'portal-origin': { type: 'string' } } });
 const pagesBase = values['pages-base'];
@@ -41,4 +42,13 @@ for (const [route, page] of Object.entries(pages)) {
 }
 
 if (pagesBase) await writeFile(join(output, '.nojekyll'), '');
-console.log(`Built ${Object.keys(pages).length} pages in ${output}.`);
+const demo = join(output, 'portal-demo');
+await mkdir(join(demo, 'client', 'portal'), { recursive: true });
+await mkdir(join(demo, 'client', 'src'), { recursive: true });
+await cp('portal/demo.html', join(demo, 'index.html'));
+await cp('portal/demo.css', join(demo, 'demo.css'));
+await cp('portal/demo.mjs', join(demo, 'client', 'portal', 'demo.mjs'));
+await cp('portal/view.mjs', join(demo, 'client', 'portal', 'view.mjs'));
+await cp('src/html.mjs', join(demo, 'client', 'src', 'html.mjs'));
+await writeFile(join(demo, 'portal.css'), portalCss);
+console.log(`Built ${Object.keys(pages).length} pages and the portal demo in ${output}.`);

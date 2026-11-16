@@ -240,12 +240,12 @@ async function publicContent(url, env) {
   const kind = url.searchParams.get('kind');
   const id = url.searchParams.get('id');
   if (!kinds.has(kind) || (id !== null && !entryId.test(id))) throw notFound();
-  const rows = id ? await all(statement(env, 'SELECT * FROM publications WHERE kind = ? AND id = ?', kind, id)) :
-    await all(statement(env, 'SELECT * FROM publications WHERE kind = ? ORDER BY updated_at, id', kind));
+  const rows = id ?
+    await all(statement(env, 'SELECT kind, id, payload, archived FROM publications WHERE kind = ? AND id = ?', kind, id)) :
+    await all(statement(env, 'SELECT kind, id, payload, archived FROM publications WHERE kind = ? ORDER BY updated_at, id', kind));
   const entries = rows.map(row => {
     if (row.archived) return { kind: row.kind, id: row.id, archived: true };
-    const { revision, ...entry } = unpack(row);
-    return entry;
+    return { ...JSON.parse(row.payload), archived: false };
   });
   if (id && entries.length === 0) {
     const entry = findStatic(kind, id);

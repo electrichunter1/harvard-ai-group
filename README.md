@@ -14,6 +14,8 @@ For a local site at the root of a static server, run `node build.mjs` and serve 
 
 The portal is a separate Cloudflare Worker backed by D1. The public Pages site reads approved event, project, and profile updates from a read-only feed. Share the [private sign-in URL](https://harvard-ai-group-portal.buzznguyen.workers.dev/portal/) directly with authorized members. The public navigation has no portal link.
 
+The [interactive portal demo](https://electrichunter1.github.io/harvard-ai-group/portal-demo/) uses fictional Member, Board, and Owner accounts. Its state lives in the open tab and clears on reload.
+
 | Role | What they can do |
 | --- | --- |
 | Member | Propose a public profile or project, see the status of their own requests, and withdraw pending requests. |
@@ -45,5 +47,12 @@ The portal is a separate Cloudflare Worker backed by D1. The public Pages site r
 ### Maintenance
 
 Board members can use the workspace for day-to-day event, project, and profile updates. General site copy, program schedules, layout, and photos are maintained under `src/`. Existing entries built into Pages remain in the repository’s public history. Archiving one in the workspace removes it from the live catalog when the feed is reachable. If an old entry should also disappear from the static fallback, remove it from the source and rebuild.
+
+### Database management
+
+- Cloudflare D1 stores the approved account roster, member requests, and published entries in separate tables. The owner manages the roster in the workspace. Cloudflare Access handles sign-in and MFA. The Worker verifies the signed Access token and checks the caller’s role on each portal request. The portal stores no passwords or MFA secrets.
+- The Worker uses parameterized SQL. Publishing a request writes the approved entry and marks the request as published in one transaction. The anonymous feed reads only publication fields. The portal and database credentials stay in Cloudflare.
+- Indexes support account lookup, member request history, the board’s pending queue, and the public feed. GitHub Pages serves the public site independently of the database and loads publication updates in the background.
+- Cloudflare D1 automatically encrypts data in transit and at rest. It also maintains point-in-time recovery through Time Travel. [D1 data security](https://developers.cloudflare.com/d1/reference/data-security/), [D1 backups](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 Run `npm test` in `portal/` on supported Node.js 24 to verify token validation, role separation, request privacy, and publication. Run the deployment dry run with the account values set to verify the Worker bundle.
