@@ -1,6 +1,8 @@
 import { accessIdentity } from './access.mjs';
-import { css, dashboard, editor, page } from './view.mjs';
+import { copyEditor, css, dashboard, deleteConfirmation, editor, page, requestPicker } from './view.mjs';
+import { requestTypes, roleLabels, kindFor, typeFor, canEdit, reviewScope, requestScope, canEditCopy, workspaceTitle } from './request-types.mjs';
 import { catalog } from '../src/content.mjs';
+import { siteCopy } from '../src/site-copy.mjs';
 
 const kinds = new Set(['event', 'project', 'profile']);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -9,7 +11,7 @@ const emailAddress = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const defaultSite = 'https://electrichunter1.github.io/harvard-ai-group/';
 const headers = {
   'Cache-Control': 'no-store',
-  'Content-Security-Policy': "default-src 'none'; style-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'none'; style-src 'self'; script-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
   'Referrer-Policy': 'same-origin',
   'X-Content-Type-Options': 'nosniff',
   'X-Robots-Tag': 'noindex, nofollow',
@@ -32,6 +34,7 @@ const getPublication = (env, kind, id) => first(env,
   'SELECT payload, revision, archived FROM publications WHERE kind = ? AND id = ?', kind, id);
 const conflict = () => new Problem(409, 'This entry has changed. Return to the workspace and open it again.');
 const notFound = () => new Problem(404, 'This page could not be found.');
+const forbidden = () => new Problem(403, 'Your account does not have access to this action.');
 
 function text(form, name, limit, required = true) {
   const value = (form.get(name) || '').trim();
@@ -41,12 +44,21 @@ function text(form, name, limit, required = true) {
   return value;
 }
 
-function content(form, kind, id) {
-  const result = {
-    kind, id, title: text(form, 'title', 120), category: text(form, 'category', 48),
-    summary: text(form, 'summary', 290), body: text(form, 'body', 3000, false),
-    link: text(form, 'link', 500, false),
-  };
+function content(form, type, id) {
+  const result = { kind: kindFor(type), id };
+  for (const [key, , limit, inputType, optional] of requestTypes[type].fields) {
+    const value = text(form, key, limit, !optional);
+    if (value && inputType === 'date') {
+      const day = new Date(value + 'T00:00:00Z');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || isNaN(day) || day.toISOString().slice(0, 10) !== value) {
+        throw new Problem(400, 'Enter a valid date.');
+      }
+    }
+    if (value && inputType === 'time' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+      throw new Problem(400, 'Enter a valid start time.');
+    }
+    result[key] = value;
+  }
   if (result.link) {
     try {
       const link = new URL(result.link);
@@ -56,34 +68,31 @@ function content(form, kind, id) {
       throw new Problem(400, 'Enter an HTTPS link or leave the link empty.');
     }
   }
-  if (kind === 'event') {
-    const date = text(form, 'date', 10);
-    const day = new Date(date + 'T00:00:00Z');
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(day) || day.toISOString().slice(0, 10) !== date) {
-      throw new Problem(400, 'Enter a valid event date.');
-    }
-    result.date = date;
-    result.dateLabel = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(day);
+  if (result.date) {
+    result.dateLabel = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' })
+      .format(new Date(result.date + 'T00:00:00Z'));
   }
-  if (kind === 'project') result.byline = text(form, 'byline', 120);
+  if (type === 'paper') Object.assign(result, { type, category: 'Paper' });
   return result;
 }
 
 async function identity(request, env, authenticate) {
   const email = await authenticate(request, env);
   if (!email) throw new Problem(401, 'Sign in through the private portal link.');
-  const owner = env.OWNER_EMAIL?.trim().toLowerCase();
-  if (owner && email === owner) return { email, role: 'owner' };
+  if (email === primaryManager(env)) return { email, role: 'manager', primary: true };
   const account = await first(env, 'SELECT role FROM accounts WHERE email = ?', email);
-  if (!account) throw new Problem(403, 'Ask the website owner to authorize your sign-in address.');
+  if (!account) throw new Problem(403, 'Ask a website manager to authorize your sign-in address.');
   return { email, role: account.role };
 }
 
 function requireRole(member, role) {
-  if (member.role !== 'owner' && member.role !== role) {
-    throw new Problem(403, 'Your account does not have access to this action.');
+  if (role === 'board' ? !canEdit(member.role) : member.role !== role) {
+    throw forbidden();
   }
 }
+
+const primaryManager = env => env.OWNER_EMAIL?.trim().toLowerCase();
+const getCopy = (env, area) => first(env, 'SELECT payload, revision FROM site_copy WHERE area = ?', area);
 
 function html(title, content, status, env, member) {
   return new Response(page(title, content, member, env.PUBLIC_SITE || defaultSite), {
@@ -100,10 +109,16 @@ async function getPortal(url, env, member) {
   if (pathname === '/portal/style.css') {
     return new Response(css, { headers: { ...headers, 'Content-Type': 'text/css; charset=utf-8' } });
   }
+  if (pathname === '/portal/request.js') {
+    return new Response('(' + requestPicker.toString() + ')(document);', {
+      headers: { ...headers, 'Content-Type': 'text/javascript; charset=utf-8' },
+    });
+  }
   if (pathname === '/portal/' || pathname === '/portal') {
-    const board = member.role !== 'member';
-    const requests = board ?
-      await all(statement(env, "SELECT * FROM submissions WHERE status = 'pending' ORDER BY created_at, id")) :
+    const board = canEdit(member.role);
+    const scope = reviewScope(member.role);
+    const requests = scope ?
+      await all(statement(env, "SELECT * FROM submissions WHERE scope = ? AND status = 'pending' ORDER BY created_at, id", scope)) :
       await all(statement(env, 'SELECT * FROM submissions WHERE author = ? ORDER BY created_at DESC, id DESC LIMIT 100', member.email));
     const entries = new Map(catalog.map(entry => [entry.kind + '/' + entry.id, entry]));
     if (board) {
@@ -111,59 +126,81 @@ async function getPortal(url, env, member) {
         entries.set(row.kind + '/' + row.id, unpack(row));
       }
     }
-    const accounts = member.role === 'owner' ?
+    const accounts = member.role === 'manager' ?
       await all(statement(env, 'SELECT email, role FROM accounts ORDER BY email')) : [];
-    return html(board ? 'Board workspace' : 'Member workspace',
-      dashboard(member, requests, [...entries.values()], accounts, searchParams.get('status')), 200, env, member);
+    return html(workspaceTitle(member.role),
+      dashboard(member, requests, [...entries.values()].filter(entry => member.role === 'manager' || !entry.archived), accounts,
+        searchParams.get('status')), 200, env, member);
   }
-  requireRole(member, 'board');
-  const id = searchParams.get('id');
-  if (pathname === '/portal/review' && uuid.test(id ?? '')) {
-    const submission = await first(env, "SELECT * FROM submissions WHERE id = ? AND status = 'pending'", id);
-    if (!submission) throw notFound();
-    const [title, body] = editor(JSON.parse(submission.payload).kind, null, submission);
+  if (pathname === '/portal/copy') {
+    const area = searchParams.get('area');
+    if (!Object.hasOwn(siteCopy, area)) throw notFound();
+    if (!canEditCopy(member.role, area)) throw forbidden();
+    const row = await getCopy(env, area);
+    const [title, body] = copyEditor(area, row ? JSON.parse(row.payload) : {}, row?.revision ?? 0);
     return html(title, body, 200, env, member);
   }
-  const kind = searchParams.get('kind');
-  if (pathname !== '/portal/edit' || !kinds.has(kind) || (id && !entryId.test(id))) throw notFound();
+  const id = searchParams.get('id');
+  if (pathname === '/portal/review' && uuid.test(id ?? '')) {
+    const scope = reviewScope(member.role);
+    if (!scope) throw forbidden();
+    const submission = await first(env, "SELECT * FROM submissions WHERE id = ? AND scope = ? AND status = 'pending'", id, scope);
+    if (!submission) throw notFound();
+    const [title, body] = editor(typeFor(JSON.parse(submission.payload)), null, submission);
+    return html(title, body, 200, env, member);
+  }
+  requireRole(member, 'board');
+  const type = searchParams.get('kind');
+  const kind = kindFor(type);
+  const deleting = pathname === '/portal/delete';
+  if ((!deleting && pathname !== '/portal/edit') || type === 'fellowship' || !Object.hasOwn(requestTypes, type) ||
+      (id && !entryId.test(id))) throw notFound();
+  if (deleting) requireRole(member, 'manager');
   const row = id && await getPublication(env, kind, id);
   const entry = row ? unpack(row) : findStatic(kind, id);
-  if (id && !entry) throw notFound();
-  const [title, body] = editor(kind, entry, null);
+  if (id && (!entry || typeFor(entry) !== type)) throw notFound();
+  if (entry?.archived) requireRole(member, 'manager');
+  if (deleting) {
+    if (!entry || entry.archived) throw notFound();
+    return html('Delete from site', deleteConfirmation(type, entry), 200, env, member);
+  }
+  const [title, body] = editor(type, entry, null, { canDelete: member.role === 'manager' });
   return html(title, body, 200, env, member);
 }
 
 async function submit(form, env, member) {
   requireRole(member, 'member');
-  const kind = form.get('kind');
-  if (kind !== 'project' && kind !== 'profile') throw notFound();
+  const type = form.get('kind');
+  if (!Object.hasOwn(requestTypes, type)) throw notFound();
   const id = crypto.randomUUID();
-  const entry = content(form, kind, id);
-  const result = await run(env, `INSERT INTO submissions (id, author, payload)
-    SELECT ?, ?, ? WHERE (SELECT count(*) FROM submissions WHERE author = ? AND status = 'pending') < 10`,
-  id, member.email, JSON.stringify(entry), member.email);
+  const entry = content(form, type, id);
+  const result = await run(env, `INSERT INTO submissions (id, author, payload, scope)
+    SELECT ?, ?, ?, ? WHERE (SELECT count(*) FROM submissions WHERE author = ? AND status = 'pending') < 10`,
+  id, member.email, JSON.stringify(entry), requestScope(type), member.email);
   if (!result.meta.changes) throw new Problem(409, 'You can have up to 10 requests waiting for review.');
-  return redirect('submitted');
+  return redirect(type === 'fellowship' ? 'submittedFellow' : 'submitted');
 }
 
 async function review(form, env, member) {
+  const scope = reviewScope(member.role);
+  if (!scope) throw forbidden();
   const id = form.get('id');
   if (!uuid.test(id ?? '')) throw notFound();
-  const pending = await first(env, "SELECT payload FROM submissions WHERE id = ? AND status = 'pending'", id);
+  const pending = await first(env, "SELECT payload FROM submissions WHERE id = ? AND scope = ? AND status = 'pending'", id, scope);
   if (!pending) throw conflict();
-  const kind = JSON.parse(pending.payload).kind;
+  const type = typeFor(JSON.parse(pending.payload));
   const decision = form.get('decision');
   if (!['publish', 'decline'].includes(decision)) throw notFound();
-  const status = decision === 'publish' ? 'published' : 'declined';
+  const status = decision === 'decline' ? 'declined' : scope === 'fellowship' ? 'approved' : 'published';
   const mark = statement(env, `UPDATE submissions SET status = ?, reviewed_at = CURRENT_TIMESTAMP, reviewer = ?
-    WHERE id = ? AND status = 'pending'`, status, member.email, id);
-  if (decision === 'decline') {
+    WHERE id = ? AND scope = ? AND status = 'pending'`, status, member.email, id, scope);
+  if (status !== 'published') {
     if (!(await mark.run()).meta.changes) throw conflict();
   } else {
-    const entry = content(form, kind, id);
+    const entry = content(form, type, id);
     const publish = statement(env, `INSERT INTO publications (kind, id, payload, updated_by)
-      SELECT ?, id, ?, ? FROM submissions WHERE id = ? AND status = 'pending'`,
-    kind, JSON.stringify(entry), member.email, id);
+      SELECT ?, id, ?, ? FROM submissions WHERE id = ? AND scope = ? AND status = 'pending'`,
+    entry.kind, JSON.stringify(entry), member.email, id, scope);
     const results = await env.DB.batch([publish, mark]);
     if (!results[1].meta.changes) throw conflict();
   }
@@ -171,17 +208,23 @@ async function review(form, env, member) {
 }
 
 async function save(form, env, member, archive) {
-  const kind = form.get('kind');
+  if (archive) requireRole(member, 'manager');
+  const type = form.get('kind');
+  const kind = kindFor(type);
   const id = form.get('id');
   const suppliedRevision = form.get('revision');
-  if (!kinds.has(kind) || !entryId.test(id ?? '') || !/^\d{1,12}$/.test(suppliedRevision ?? '')) throw notFound();
+  if (type === 'fellowship' || !Object.hasOwn(requestTypes, type) ||
+      !entryId.test(id ?? '') || !/^\d{1,12}$/.test(suppliedRevision ?? '')) throw notFound();
   const revision = Number(suppliedRevision);
   const current = await getPublication(env, kind, id);
   const original = findStatic(kind, id);
+  const existing = current ? unpack(current) : original;
+  if (existing && typeFor(existing) !== type) throw notFound();
+  if (existing?.archived) requireRole(member, 'manager');
   if ((!current && !original && (!uuid.test(id) || archive)) || revision !== (current?.revision || 0)) {
     throw conflict();
   }
-  let entry = archive ? (current ? unpack(current) : original) : content(form, kind, id);
+  let entry = archive ? { ...existing } : content(form, type, id);
   if (!archive && original) {
     // Keep the existing photo and cross-references when a board member edits old copy.
     entry = { ...original, ...entry };
@@ -200,13 +243,48 @@ async function save(form, env, member, archive) {
   return redirect(archive ? 'archived' : 'published');
 }
 
+async function saveCopy(form, env, member) {
+  const area = form.get('area');
+  const revision = form.get('revision');
+  if (!Object.hasOwn(siteCopy, area) || !/^\d{1,12}$/.test(revision ?? '')) throw notFound();
+  if (!canEditCopy(member.role, area)) throw forbidden();
+  const payload = JSON.stringify(Object.fromEntries(
+    Object.keys(siteCopy[area].fields).map(key => [key, text(form, key, 1500)]),
+  ));
+  const result = Number(revision) === 0 ?
+    await run(env, `INSERT INTO site_copy (area, payload, updated_by) VALUES (?, ?, ?)
+      ON CONFLICT(area) DO NOTHING`, area, payload, member.email) :
+    await run(env, `UPDATE site_copy SET payload = ?, revision = revision + 1, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE area = ? AND revision = ?`, payload, member.email, area, Number(revision));
+  if (!result.meta.changes) throw conflict();
+  return redirect('copy');
+}
+
+async function manageAccess(form, env, member) {
+  requireRole(member, 'manager');
+  const email = text(form, 'email', 254).toLowerCase();
+  const role = form.get('role');
+  if (!emailAddress.test(email) || email === member.email || email === primaryManager(env) ||
+      (role !== 'revoke' && !Object.hasOwn(roleLabels, role))) {
+    throw new Problem(400, 'Enter a verified address and a valid role.');
+  }
+  if (role === 'manager' && !member.primary) throw new Problem(403, 'Only the primary website manager can assign this role.');
+  const primary = Number(Boolean(member.primary));
+  const result = role === 'revoke' ?
+    await run(env, "DELETE FROM accounts WHERE email = ? AND (role <> 'manager' OR ? = 1)", email, primary) :
+    await run(env, `INSERT INTO accounts (email, role) VALUES (?, ?)
+      ON CONFLICT(email) DO UPDATE SET role = excluded.role WHERE accounts.role <> 'manager' OR ? = 1`, email, role, primary);
+  if (!result.meta.changes) throw new Problem(403, 'This account could not be changed.');
+  return redirect('access');
+}
+
 async function mutate(request, pathname, env, member) {
   // Same-origin form posts are required in addition to the signed Access session.
   if (!env.PORTAL_ORIGIN || request.headers.get('Origin') !== env.PORTAL_ORIGIN) {
     throw new Problem(403, 'Submit this form from the private workspace.');
   }
   const size = Number(request.headers.get('Content-Length'));
-  if (!Number.isSafeInteger(size) || size < 1 || size > 24576) throw new Problem(413, 'The form is too large.');
+  if (!Number.isSafeInteger(size) || size < 1 || size > 65536) throw new Problem(413, 'The form is too large.');
   if (request.headers.get('Content-Type')?.split(';')[0] !== 'application/x-www-form-urlencoded') {
     throw new Problem(415, 'Submit the workspace form.');
   }
@@ -218,22 +296,26 @@ async function mutate(request, pathname, env, member) {
     if (!result.meta.changes) throw notFound();
     return redirect('withdrawn');
   }
-  requireRole(member, 'board');
   if (pathname === '/portal/review') return review(form, env, member);
   if (pathname === '/portal/save' || pathname === '/portal/archive') {
+    requireRole(member, 'board');
     return save(form, env, member, pathname.endsWith('archive'));
   }
-  if (pathname !== '/portal/access') throw notFound();
-  requireRole(member, 'owner');
-  const email = text(form, 'email', 254).toLowerCase();
-  const role = form.get('role');
-  if (!emailAddress.test(email) || email === member.email || !['member', 'board', 'revoke'].includes(role)) {
-    throw new Problem(400, 'Enter a verified account address and a valid role.');
-  }
-  if (role === 'revoke') await run(env, 'DELETE FROM accounts WHERE email = ?', email);
-  else await run(env, `INSERT INTO accounts (email, role) VALUES (?, ?)
-    ON CONFLICT(email) DO UPDATE SET role = excluded.role`, email, role);
-  return redirect('access');
+  if (pathname === '/portal/copy') return saveCopy(form, env, member);
+  if (pathname === '/portal/access') return manageAccess(form, env, member);
+  throw notFound();
+}
+
+const publicHeaders = env => ({
+  ...headers,
+  'Access-Control-Allow-Origin': new URL(env.PUBLIC_SITE || defaultSite).origin,
+});
+
+async function publicCopy(url, env) {
+  const area = url.searchParams.get('area');
+  if (!Object.hasOwn(siteCopy, area)) throw notFound();
+  const row = await getCopy(env, area);
+  return Response.json({ copy: row ? JSON.parse(row.payload) : {} }, { headers: publicHeaders(env) });
 }
 
 async function publicContent(url, env) {
@@ -251,10 +333,7 @@ async function publicContent(url, env) {
     const entry = findStatic(kind, id);
     if (entry) entries.push(entry);
   }
-  return Response.json({ entries }, { headers: {
-    ...headers,
-    'Access-Control-Allow-Origin': new URL(env.PUBLIC_SITE || defaultSite).origin,
-  } });
+  return Response.json({ entries }, { headers: publicHeaders(env) });
 }
 
 export function createHandler(authenticate = accessIdentity) {
@@ -264,6 +343,7 @@ export function createHandler(authenticate = accessIdentity) {
       try {
         const url = new URL(request.url);
         if (url.pathname === '/public/content' && request.method === 'GET') return await publicContent(url, env);
+        if (url.pathname === '/public/copy' && request.method === 'GET') return await publicCopy(url, env);
         if (url.pathname !== '/portal' && !url.pathname.startsWith('/portal/')) throw notFound();
         if (!env.DB) throw new Problem(503, 'The portal is being set up.');
         member = await identity(request, env, authenticate);

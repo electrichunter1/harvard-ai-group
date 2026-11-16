@@ -49,6 +49,8 @@ await cp('portal/demo.html', join(demo, 'index.html'));
 await cp('portal/demo.css', join(demo, 'demo.css'));
 await cp('portal/demo.mjs', join(demo, 'client', 'portal', 'demo.mjs'));
 await cp('portal/view.mjs', join(demo, 'client', 'portal', 'view.mjs'));
+await cp('portal/request-types.mjs', join(demo, 'client', 'portal', 'request-types.mjs'));
 await cp('src/html.mjs', join(demo, 'client', 'src', 'html.mjs'));
+await cp('src/site-copy.mjs', join(demo, 'client', 'src', 'site-copy.mjs'));
 await writeFile(join(demo, 'portal.css'), portalCss);
 console.log(`Built ${Object.keys(pages).length} pages and the portal demo in ${output}.`);

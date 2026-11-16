@@ -20,6 +20,10 @@ form{display:grid;gap:.9rem;margin:.85rem 0 1.2rem;max-width:38rem}
 label{display:grid;font-weight:650;gap:.3rem}
 small{font-weight:400}
 input,textarea,select{font:inherit;padding:.55rem .65rem;border:1px solid #79829a;color:inherit;background:white;min-width:0}
+.request-select{max-width:24rem;margin-bottom:1.4rem}
+.delete-action a{color:#a12528}
+.proposal dt{font-weight:700;margin-top:1rem}
+.proposal dd{margin:0;white-space:pre-wrap}
 button,.button{display:inline-block;justify-self:start;font:inherit;font-weight:700;padding:.45rem .85rem;border:1px solid var(--blue);background:var(--blue);color:white;cursor:pointer;text-decoration:none}
 .records{display:grid;gap:.7rem;padding:0;list-style:none}
 .records li{display:flex;justify-content:space-between;align-items:center;column-gap:1rem;row-gap:.5rem;flex-wrap:wrap}

@@ -1,5 +1,6 @@
 import { bootcampDays, catalog, events, links, projects, trivia } from './content.mjs';
 import { entryPath, publicEntryRoutes } from './entries.mjs';
+import { siteCopy } from './site-copy.mjs';
 
 const button = (href, name, extra = '') => `<a class="button ${extra}" href="${href}">${name}</a>`;
 const textLink = (href, name) => `<a class="text-link" href="${href}">${name}</a>`;
@@ -8,6 +9,7 @@ const bootcampPath = '/bootcamp/';
 const navigation = [['/#about', 'About'], ['/#programs', 'Programs'], [bootcampPath, 'Bootcamp'], ['/projects/', 'Projects'], ['/events/', 'Events'], ['/team/', 'People']];
 
 function layout(route, title, description, main) {
+  const area = route === '/' ? 'home' : route.slice(1, -1);
   const draftTitle = `${title} · Draft for review`;
   const currentPage = href => route === href ? ' aria-current="page"' : '';
   return `<!doctype html>
@@ -38,7 +40,7 @@ function layout(route, title, description, main) {
     <nav id="primary-nav" aria-label="Main navigation">${navigation.map(([href, label]) => `<a${href === bootcampPath ? ' class="desktop-bootcamp"' : ''} href="${href}"${currentPage(href)}>${label}</a>`).join('')}<a class="mobile-join" href="/contact/"${currentPage('/contact/')}>Get involved</a></nav>
     <a class="header-join" href="/contact/">Get involved</a>
   </div></header>
-  <main id="main">${main}</main>
+  <main id="main"${Object.hasOwn(siteCopy, area) ? ` data-copy-area="${area}"` : ''}>${main}</main>
   <footer class="footer" id="footer">
     <div class="shell footer-inner">${brand}
       <nav aria-label="Footer"><a href="${links.mailing}">Mailing list</a><a href="${links.instagram}">Instagram</a><a href="${links.linkedin}">LinkedIn</a><a href="/contact/">Contact</a></nav>
@@ -80,7 +82,7 @@ const home = `
     <div class="shell hero-inner">
       <div class="hero-copy">
         <h1 id="home-title">Harvard <span>AI Group</span></h1>
-        <p>A student-run community for AI research, education, and events at Harvard College.</p>
+        <p data-copy="intro">${siteCopy.home.fields.intro}</p>
         ${button('/contact/', 'Get involved', 'button-light')}
       </div>
       <figure class="hero-visual" data-emblem>
@@ -103,7 +105,7 @@ const home = `
   <div class="home-info">
     <section id="about" aria-labelledby="about-title">
       <h2 id="about-title">About us</h2>
-      <p>Formerly HUSAI, we’re part of the <a href="${links.hcs}">Harvard Computer Society</a>. We fund student projects, host faculty dinners, and teach AI through hands-on work.</p>
+      <p data-copy="about">Formerly HUSAI, we’re part of the <a href="${links.hcs}">Harvard Computer Society</a>. We fund student projects, host faculty dinners, and teach AI through hands-on work.</p>
       ${textLink('/team/', 'Meet the team')}
     </section>
     <section id="programs" aria-labelledby="program-title">
@@ -123,11 +125,11 @@ function posterPhoto(media) {
   </figure>`;
 }
 
-function posterIntro(title, description, actions, print) {
+function posterIntro(title, area, actions, print) {
   return `<section class="hero page-poster" aria-labelledby="poster-title">
     ${posterImprint}
     <div class="shell hero-inner">
-      <div class="hero-copy"><h1 id="poster-title">${title}</h1><p>${description}</p><div class="page-actions">${actions}</div></div>
+      <div class="hero-copy"><h1 id="poster-title">${title}</h1><p data-copy="intro">${siteCopy[area].fields.intro}</p><div class="page-actions">${actions}</div></div>
       ${print}
     </div>
   </section>`;
@@ -139,10 +141,10 @@ const fellowPrint = `<figure class="hero-visual poster-print">
   <figcaption><a href="#fellows">Spring 2026 fellows</a></figcaption>
 </figure>`;
 
-const fellowship = `${posterIntro('AI Fellowship', 'Funding and technical mentorship for Harvard students pursuing their own AI research or software projects.', button('/fellowship/#apply', 'Application details', 'button-light') + textLink('/projects/', 'See fellows’ work'), fellowPrint)}
+const fellowship = `${posterIntro('AI Fellowship', 'fellowship', button('/fellowship/#apply', 'Application details', 'button-light') + textLink('/projects/', 'See fellows’ work'), fellowPrint)}
 <div class="shell program-content">
-  <section class="split"><h2>How it works</h2><p class="intro">Funding can cover compute, API credits, and other project costs. Fellows meet with our technical directors every two weeks to work toward research or software they can share publicly.</p></section>
-  <section class="split" id="apply"><h2>Applying</h2><div><p>Tell us the question you want to explore, how you’ll approach it, and what resources you’d need. The next application window will be announced when dates are available.</p><p>${textLink(links.mailing, 'Get application updates')}</p></div></section>
+  <section class="split"><h2>How it works</h2><p class="intro" data-copy="details">${siteCopy.fellowship.fields.details}</p></section>
+  <section class="split" id="apply"><h2>Applying</h2><div><p data-copy="applying">${siteCopy.fellowship.fields.applying}</p><p>${textLink(links.mailing, 'Get application updates')}</p></div></section>
   <section id="fellows" aria-labelledby="fellows-title"><div class="section-head"><h2 id="fellows-title">Spring 2026 fellows</h2></div><ul class="fellows-list">${fellows.map(project => `<li><a href="/team/${project.fellow}/">${project.author}</a><p>${project.title}</p></li>`).join('')}</ul></section>
   ${faq([['What can I propose?', 'Proposals can include original research, open-source tools, and applications. Explain what you want to build or learn and how you plan to do it.'], ['When can I apply?', 'Join the mailing list above to hear when the next application cycle opens.']])}
 </div>`;
@@ -152,13 +154,13 @@ const bootcampPrint = `<div class="hero-visual poster-print poster-outline">
   <ol>${bootcampDays.map(([topic], index) => `<li><span>Day ${index + 1}</span><span>${topic}</span></li>`).join('')}</ol>
 </div>`;
 
-const bootcamp = `${posterIntro('AI Bootcamp', 'A five-day online program for high school students, taught by Harvard undergraduate and graduate-level instructors.', button('/bootcamp/#details', 'Bootcamp details', 'button-light') + textLink('/bootcamp/schedule/', 'See the schedule'), bootcampPrint)}
+const bootcamp = `${posterIntro('AI Bootcamp', 'bootcamp', button('/bootcamp/#details', 'Bootcamp details', 'button-light') + textLink('/bootcamp/schedule/', 'See the schedule'), bootcampPrint)}
 <div class="shell program-content">
-  <section class="split" id="details"><h2>What you’ll do</h2><p class="intro">Follow guided exercises and work on a small research project. The week ends with a workshop where you can turn an idea into a prototype and share what you built.</p></section>
+  <section class="split" id="details"><h2>What you’ll do</h2><p class="intro" data-copy="details">${siteCopy.bootcamp.fields.details}</p></section>
   ${faq([['Who is it for?', 'The bootcamp is designed for high school students interested in artificial intelligence and machine learning. Email the group for upcoming application dates and eligibility details.'], ['Where does it take place?', 'Sessions are held online. The schedule shows what the last published summer cohort covered.'], ['Who can I ask about the program?', 'Email <a href="mailto:ai@hcs.harvard.edu?subject=AI%20Bootcamp">ai@hcs.harvard.edu</a> with questions about the schedule, curriculum, or application process.']])}
 </div>`;
 
-const eventPage = `${posterIntro('Events', 'Join us for faculty dinners, campus socials, and our spring AI tour.', button(links.mailing, 'Get event updates', 'button-light'), posterPhoto({
+const eventPage = `${posterIntro('Events', 'events', button(links.mailing, 'Get event updates', 'button-light'), posterPhoto({
   file: events[2].image, width: 1380, height: 1035, alt: events[2].alt, href: entryPath(catalog[2]),
   caption: 'Dinner with Professor Sitan Chen · February 2026',
 }))}
@@ -170,7 +172,7 @@ const eventPage = `${posterIntro('Events', 'Join us for faculty dinners, campus 
   <section class="section" aria-labelledby="event-archive-title"><div class="section-head"><h2 id="event-archive-title">Event archive</h2></div>${archive(catalog.filter(entry => entry.kind === 'event').sort((a, b) => b.date.localeCompare(a.date)), eventRow, ['Social', 'Talk', 'Trip'], 'event')}</section>
 </div>`;
 
-const projectPage = `${posterIntro('Student projects', 'See what our fellows and contributors are researching, testing, and sharing as open source.', button('/fellowship/', 'Explore the fellowship', 'button-light'), posterPhoto({
+const projectPage = `${posterIntro('Student projects', 'projects', button('/fellowship/', 'Explore the fellowship', 'button-light'), posterPhoto({
   file: 'cascade-surface-code.webp', width: 820, height: 790, diagram: true,
   alt: 'A surface-code lattice with an error chain highlighted in red', href: '/projects/cascade/',
   caption: 'Cascade · Quantum error correction',
@@ -179,7 +181,7 @@ const projectPage = `${posterIntro('Student projects', 'See what our fellows and
   <section class="section archive-page" aria-labelledby="archive-title"><div class="section-head"><h2 id="archive-title">Project archive</h2></div>${archive(catalog.filter(entry => entry.kind === 'project'), projectRow, ['Evaluation', 'Systems', 'Modeling'], 'project')}</section>
 </div>`;
 
-const contactPage = `${posterIntro('Get involved', 'Come to an event or sign up to hear about campus events and application rounds.', button(links.mailing, 'Join the mailing list', 'button-light') + textLink('/events/', 'Explore events'), posterPhoto({
+const contactPage = `${posterIntro('Get involved', 'contact', button(links.mailing, 'Join the mailing list', 'button-light') + textLink('/events/', 'Explore events'), posterPhoto({
   file: events[1].image, width: 1380, height: 1035, alt: events[1].alt, href: entryPath(catalog[1]),
   caption: 'HUSAI × HUMIC Mixer · March 2026',
 }))}
@@ -191,7 +193,7 @@ const contactPage = `${posterIntro('Get involved', 'Come to an event or sign up 
   </section>
 </div>`;
 
-const teamPage = `${posterIntro('Our people', 'Harvard AI Group is run by students. Our board organizes campus events and supports our fellowship and bootcamp programs.', button('/contact/', 'Get in touch', 'button-light'), posterPhoto({
+const teamPage = `${posterIntro('Our people', 'team', button('/contact/', 'Get in touch', 'button-light'), posterPhoto({
   file: 'bay-area.webp', width: 1500, height: 816, alt: 'Harvard AI Group students gathered outdoors during the 2024 Spring AI Tour',
   href: entryPath(catalog[4]), caption: 'Spring AI Tour, 2024',
 }))}

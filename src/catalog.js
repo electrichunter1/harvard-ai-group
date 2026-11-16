@@ -2,6 +2,7 @@ import { portalOrigin } from './catalog-config.js';
 
 const list = document.querySelector('[data-catalog]');
 const detail = document.querySelector('[data-detail]');
+const copyArea = document.querySelector('[data-copy-area]');
 const siteRoot = new URL('../', import.meta.url);
 const id = detail?.dataset.id || new URLSearchParams(location.search).get('id');
 const validId = value => typeof value === 'string' && /^[a-z0-9-]{1,100}$/.test(value);
@@ -92,6 +93,9 @@ function updateList(entries) {
 function updateDetail(entry) {
   const body = detail.querySelector('[data-entry-body]');
   if (entry.archived) {
+    detail.querySelector('[data-entry-title]').textContent = 'Entry unavailable';
+    detail.querySelector('[data-entry-label]').textContent = '';
+    document.title = 'Entry unavailable · Harvard AI Group';
     body.replaceChildren(node('p', 'This entry is currently unavailable.'));
     return;
   }
@@ -99,16 +103,39 @@ function updateDetail(entry) {
   detail.querySelector('[data-entry-label]').textContent = entry.dateLabel || entry.date || entry.category;
   document.title = entry.title + ' · Harvard AI Group · Draft for review';
   const items = [node('p', entry.summary, 'intro')];
-  if (entry.byline) items.push(node('p', entry.byline, 'meta'));
+  const date = entry.publicationDate && new Date(entry.publicationDate + 'T00:00:00Z');
+  const dateLabel = date && !isNaN(date) && new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeZone: 'UTC' }).format(date);
+  const time = entry.eventTime && new Intl.DateTimeFormat('en-US', { timeStyle: 'short', timeZone: 'UTC' })
+    .format(new Date('2000-01-01T' + entry.eventTime + ':00Z')) + ' ET';
+  const metadata = [entry.byline, entry.venue, dateLabel, time].filter(Boolean).join(' · ');
+  if (metadata) items.push(node('p', metadata, 'meta'));
   if (entry.body) items.push(node('p', entry.body));
   const href = external(entry.link);
-  if (href) items.push(link(href, entry.kind === 'event' ? 'Event link' : 'Related link'));
+  if (href) items.push(link(href, entry.type === 'paper' ? 'Read the paper' : entry.kind === 'event' ? 'Event link' : 'Related link'));
   const oldImage = body.querySelector('img');
   if (oldImage) items.splice(1, 0, oldImage);
   const related = body.querySelector('[data-entry-related]');
   if (related) items.push(related);
   body.replaceChildren(...items);
 }
+
+async function updateCopy() {
+  const url = new URL('/public/copy', portalOrigin);
+  url.searchParams.set('area', copyArea.dataset.copyArea);
+  try {
+    const response = await fetch(url, { credentials: 'omit', signal: AbortSignal.timeout(5000) });
+    if (!response.ok) return;
+    const { copy } = await response.json();
+    for (const field of copyArea.querySelectorAll('[data-copy]')) {
+      const value = copy[field.dataset.copy];
+      if (typeof value === 'string' && value !== field.textContent) field.textContent = value;
+    }
+  } catch {
+    // The built-in copy remains available when the content service is unreachable.
+  }
+}
+
+if (portalOrigin && copyArea) updateCopy();
 
 if (portalOrigin && (list || (detail && validId(id)))) {
   const kind = list?.dataset.catalog || detail.dataset.detail;

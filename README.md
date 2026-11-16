@@ -12,15 +12,16 @@ For a local site at the root of a static server, run `node build.mjs` and serve 
 
 ## Private member and board portal
 
-The portal is a separate Cloudflare Worker backed by D1. The public Pages site reads approved event, project, and profile updates from a read-only feed. Share the [private sign-in URL](https://harvard-ai-group-portal.buzznguyen.workers.dev/portal/) directly with authorized members. The public navigation has no portal link.
+The portal is a separate Cloudflare Worker backed by D1. The public Pages site reads approved event, paper, project, profile, and page copy updates from read-only endpoints. Share the [private sign-in URL](https://harvard-ai-group-portal.buzznguyen.workers.dev/portal/) directly with authorized members. The public navigation has no portal link.
 
-The [interactive portal demo](https://electrichunter1.github.io/harvard-ai-group/portal-demo/) uses fictional Member, Board, and Owner accounts. Its state lives in the open tab and clears on reload.
+The [interactive portal demo](https://electrichunter1.github.io/harvard-ai-group/portal-demo/) uses fictional accounts for all four roles. Its state lives in the open tab and clears on reload.
 
 | Role | What they can do |
 | --- | --- |
-| Member | Propose a public profile or project, see the status of their own requests, and withdraw pending requests. |
-| Board | Review and edit requests before publishing, and create, edit, or archive events, projects, and profiles. |
-| Owner | Manage the member and board roster and perform board actions. |
+| Member | Submit requests for projects, papers, events, profiles, or fellowship. Track their own requests and withdraw pending ones. |
+| Board | Review website requests and create, edit, and publish projects, papers, events, and profiles. |
+| Website manager | Perform board actions, edit page copy, delete or restore catalog entries, and manage the account roster. Only the primary Website manager can grant or revoke the Website manager role. |
+| Fellow manager | Review fellowship proposals and approve or decline them privately. Edit Fellowship page copy. |
 
 ### Activate the portal
 
@@ -34,10 +35,10 @@ The [interactive portal demo](https://electrichunter1.github.io/harvard-ai-group
    | `HAG_D1_ID` | D1 database UUID |
    | `HAG_ACCESS_ISSUER` | Access team origin, such as `https://team.cloudflareaccess.com` |
    | `HAG_ACCESS_AUD` | Access application audience tag |
-   | `HAG_OWNER_EMAIL` | One verified owner address |
+   | `HAG_OWNER_EMAIL` | Verified email of the primary Website manager |
    | `HAG_PORTAL_ORIGIN` | HTTPS origin of the Worker, without a trailing slash |
 
-5. Verify that the portal requires Access sign-in and denies signed-in accounts without a portal role. Check that `/public/content?kind=project` responds anonymously and contains only published entries. Sign in as the owner, assign the initial roles, and verify a member request plus a board publication before inviting the broader club.
+5. Verify that the portal requires Access sign-in and denies signed-in accounts without a portal role. Check that `/public/content?kind=project` responds anonymously and contains only published entries. Sign in as the primary Website manager, assign the initial roles, and verify that website and fellowship requests reach their respective reviewers.
 6. From the repository root, rebuild the Pages site and commit the generated output. The build already uses the current production feed. To point it to a new deployment, set the origin explicitly and update the default in `build.mjs`.
 
    ```sh
@@ -46,13 +47,13 @@ The [interactive portal demo](https://electrichunter1.github.io/harvard-ai-group
 
 ### Maintenance
 
-Board members can use the workspace for day-to-day event, project, and profile updates. General site copy, program schedules, layout, and photos are maintained under `src/`. Existing entries built into Pages remain in the repository’s public history. Archiving one in the workspace removes it from the live catalog when the feed is reachable. If an old entry should also disappear from the static fallback, remove it from the source and rebuild.
+Board members can use the workspace for day-to-day event, paper, project, and profile updates. Website managers can edit the main page introductions and key program text through **Website copy**. Layout, photos, and the detailed Bootcamp schedule are maintained under `src/`. Deleting an entry removes it from the live catalog and keeps a private copy for Website managers to restore. Entries built into Pages also exist in the static fallback and public repository history. To remove an old entry from the static fallback, remove it from the source and rebuild.
 
 ### Database management
 
-- Cloudflare D1 stores the approved account roster, member requests, and published entries in separate tables. The owner manages the roster in the workspace. Cloudflare Access handles sign-in and MFA. The Worker verifies the signed Access token and checks the caller’s role on each portal request. The portal stores no passwords or MFA secrets.
-- The Worker uses parameterized SQL. Publishing a request writes the approved entry and marks the request as published in one transaction. The anonymous feed reads only publication fields. The portal and database credentials stay in Cloudflare.
-- Indexes support account lookup, member request history, the board’s pending queue, and the public feed. GitHub Pages serves the public site independently of the database and loads publication updates in the background.
+- Cloudflare D1 stores the approved account roster, requests, publications, and page copy in separate tables. Website managers control the roster. Cloudflare Access handles sign-in and MFA. The Worker verifies the signed Access token and checks the caller’s role on each portal request. The portal stores no passwords or MFA secrets.
+- The Worker uses parameterized SQL. Fellowship decisions update only private requests. Publishing a website request writes the public entry and updates the request status in one transaction. The anonymous endpoints read only published content and copy.
+- Indexes support account lookup, member request history, both pending review queues, and the public catalog. GitHub Pages serves the public site independently of the database and loads publication and copy updates in the background.
 - Cloudflare D1 automatically encrypts data in transit and at rest. It also maintains point-in-time recovery through Time Travel. [D1 data security](https://developers.cloudflare.com/d1/reference/data-security/), [D1 backups](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 Run `npm test` in `portal/` on supported Node.js 24 to verify token validation, role separation, request privacy, and publication. Run the deployment dry run with the account values set to verify the Worker bundle.

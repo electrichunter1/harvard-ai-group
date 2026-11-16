@@ -11,11 +11,15 @@ const owner = 'owner@example.test';
 const board = 'board@example.test';
 const member = 'member@example.test';
 const other = 'other@example.test';
+const fellow = 'fellow@example.test';
+const manager = 'manager@example.test';
 
 function database() {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec(readFileSync(new URL('./migrations/0001_portal.sql', import.meta.url), 'utf8'));
   sqlite.exec(readFileSync(new URL('./migrations/0002_portal_indexes.sql', import.meta.url), 'utf8'));
+  sqlite.prepare('INSERT INTO accounts (email, role) VALUES (?, ?)').run(other, 'member');
+  sqlite.exec(readFileSync(new URL('./migrations/0003_website_managers.sql', import.meta.url), 'utf8'));
   return {
     prepare(sql) {
       const prepared = sqlite.prepare(sql);
@@ -85,14 +89,19 @@ test('member requests stay private until board publication; access and edits are
   const feed = async kind => (await (await get('/public/content?kind=' + kind)).json()).entries;
   assert.equal((await get('/portal/')).status, 401);
   assert.equal((await get('/portal/', member)).status, 403);
+  assert.equal((await get('/portal/', other)).status, 200);
+  assert.match(await (await get('/portal/', owner)).text(), /Website manager workspace/);
   assert.equal((await worker.fetch(new Request(origin + '/portal/', {
     headers: { 'Cf-Access-Authenticated-User-Email': owner, 'X-Test-Identity': owner },
   }), env)).status, 401);
 
-  for (const [email, role] of [[member, 'member'], [other, 'member'], [board, 'board']]) {
+  for (const [email, role] of [[member, 'member'], [board, 'board'], [manager, 'manager'], [fellow, 'fellow']]) {
     assert.equal((await post('access', owner, { email, role })).status, 303);
   }
   assert.equal((await post('access', board, { email: board, role: 'board' })).status, 403);
+  assert.equal((await post('access', manager, { email: fellow, role: 'manager' })).status, 403);
+  assert.equal((await post('access', manager, { email: owner, role: 'revoke' })).status, 400);
+  assert.match(await (await get('/portal/', fellow)).text(), /Fellow manager workspace/);
 
   const project = { kind: 'project', title: '<script>Private work</script>', category: 'Robotics', summary: 'A project in review', byline: 'Test Member' };
   assert.equal((await post('submit', member, project, 'https://other.example.test')).status, 403);
@@ -115,8 +124,48 @@ test('member requests stay private until board publication; access and edits are
   assert.equal((await post('save', board, { ...project, id: requestId, revision: 1, title: 'Approved research' })).status, 303);
   assert.equal((await post('save', board, { ...project, id: requestId, revision: 1 })).status, 409);
   assert.equal((await feed('project'))[0].title, 'Approved research');
-  assert.equal((await post('archive', board, { kind: 'project', id: requestId, revision: 2 })).status, 303);
+  assert.equal((await get('/portal/delete?kind=project&id=' + requestId, board)).status, 403);
+  assert.equal((await post('archive', board, { kind: 'project', id: requestId, revision: 2 })).status, 403);
+  assert.match(await (await get('/portal/delete?kind=project&id=' + requestId, manager)).text(), /Confirm deletion/);
+  assert.equal((await post('archive', manager, { kind: 'project', id: requestId, revision: 2 })).status, 303);
   assert.deepEqual(await feed('project'), [{ kind: 'project', id: requestId, archived: true }]);
+  assert.equal((await post('save', board, { ...project, id: requestId, revision: 3 })).status, 403);
+  assert.equal((await post('save', manager, { ...project, id: requestId, revision: 3 })).status, 303);
+
+  const event = { kind: 'event', title: 'Workshop', category: 'Talk', summary: 'Project walkthrough', date: '2027-02-01', eventTime: '17:30', venue: 'Science Center' };
+  assert.equal((await post('submit', member, { ...event, eventTime: '26:30' })).status, 400);
+  assert.equal((await post('submit', member, event)).status, 303);
+  const paper = { kind: 'paper', title: 'Demo Paper', byline: 'Example Authors', summary: 'Brief description',
+    body: 'Full abstract', venue: 'Example Journal', publicationDate: '2027-02-04' };
+  assert.equal((await post('submit', member, { ...paper, body: '' })).status, 400);
+  assert.equal((await post('submit', member, paper)).status, 303);
+  const pendingPaper = await (await get('/portal/', board)).text();
+  const paperId = pendingPaper.match(/review\?id=([a-f0-9-]+)">Demo Paper/)[1];
+  assert.equal((await post('review', board, { ...paper, id: paperId, decision: 'publish' })).status, 303);
+  assert.deepEqual((await feed('project')).find(entry => entry.id === paperId),
+    { ...paper, kind: 'project', category: 'Paper', type: 'paper', id: paperId, link: '', archived: false });
+
+  const proposal = { kind: 'fellowship', title: 'Private proposal', byline: 'Example Applicant', summary: 'An example goal', body: 'A detailed plan' };
+  assert.equal((await post('submit', member, proposal)).status, 303);
+  assert.doesNotMatch(await (await get('/portal/', board)).text(), /Private proposal/);
+  assert.doesNotMatch(await (await get('/portal/', manager)).text(), /Private proposal/);
+  const fellowPage = await (await get('/portal/', fellow)).text();
+  assert.doesNotMatch(fellowPage, /Published entries|Portal access|Workshop/);
+  const proposalId = fellowPage.match(/review\?id=([a-f0-9-]+)">Private proposal/)[1];
+  assert.match(await (await get('/portal/review?id=' + proposalId, fellow)).text(), /Approve fellowship request/);
+  assert.equal((await get('/portal/review?id=' + proposalId, manager)).status, 404);
+  assert.equal((await post('review', board, { id: proposalId, decision: 'publish' })).status, 409);
+  assert.equal((await post('review', fellow, { id: proposalId, decision: 'publish' })).status, 303);
+  assert.match(await (await get('/portal/', member)).text(), /Fellowship · approved/);
+  assert.doesNotMatch(JSON.stringify(await feed('project')), /Private proposal/);
+
+  const copy = { area: 'home', revision: 0, intro: 'Welcome to the group', about: 'A new public description' };
+  assert.equal((await post('copy', board, copy)).status, 403);
+  assert.equal((await post('copy', fellow, copy)).status, 403);
+  assert.equal((await post('copy', manager, copy)).status, 303);
+  assert.equal((await post('copy', owner, copy)).status, 409);
+  assert.deepEqual(await (await get('/public/copy?area=home')).json(), { copy: { intro: copy.intro, about: copy.about } });
+  assert.equal((await post('copy', fellow, { area: 'fellowship', revision: 0, intro: 'Program', details: 'Funding', applying: 'Apply for this cycle' })).status, 303);
   assert.equal((await post('access', owner, { email: member, role: 'revoke' })).status, 303);
   assert.equal((await get('/portal/', member)).status, 403);
 });
