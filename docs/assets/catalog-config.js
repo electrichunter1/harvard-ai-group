@@ -1,1 +1,1 @@
-export const portalOrigin = "";
+export const portalOrigin = "https://harvard-ai-group-portal.buzznguyen.workers.dev";

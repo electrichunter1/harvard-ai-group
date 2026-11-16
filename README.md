@@ -12,7 +12,7 @@ For a local site at the root of a static server, run `node build.mjs` and serve 
 
 ## Private member and board portal
 
-The portal is a separate Cloudflare Worker backed by D1. The public Pages site reads approved event, project, and profile updates from a read-only feed. The public navigation has no portal link. Share the private sign-in URL directly with authorized members.
+The portal is a separate Cloudflare Worker backed by D1. The public Pages site reads approved event, project, and profile updates from a read-only feed. Share the [private sign-in URL](https://harvard-ai-group-portal.buzznguyen.workers.dev/portal/) directly with authorized members. The public navigation has no portal link.
 
 | Role | What they can do |
 | --- | --- |
@@ -36,7 +36,7 @@ The portal is a separate Cloudflare Worker backed by D1. The public Pages site r
    | `HAG_PORTAL_ORIGIN` | HTTPS origin of the Worker, without a trailing slash |
 
 5. Verify that the portal requires Access sign-in and denies signed-in accounts without a portal role. Check that `/public/content?kind=project` responds anonymously and contains only published entries. Sign in as the owner, assign the initial roles, and verify a member request plus a board publication before inviting the broader club.
-6. From the repository root, rebuild the Pages site with the feed enabled and commit the generated output.
+6. From the repository root, rebuild the Pages site and commit the generated output. The build already uses the current production feed. To point it to a new deployment, set the origin explicitly and update the default in `build.mjs`.
 
    ```sh
    node build.mjs --pages-base /harvard-ai-group/ --portal-origin https://harvard-ai-group-portal.<workers-subdomain>.workers.dev

@@ -6,7 +6,8 @@ import { controls, contours, ink } from './src/logo.mjs';
 
 const { values } = parseArgs({ options: { 'pages-base': { type: 'string' }, 'portal-origin': { type: 'string' } } });
 const pagesBase = values['pages-base'];
-const portalOrigin = values['portal-origin'] || '';
+const portalOrigin = values['portal-origin'] ??
+  (pagesBase ? 'https://harvard-ai-group-portal.buzznguyen.workers.dev' : '');
 if (portalOrigin && (!portalOrigin.startsWith('https://') || new URL(portalOrigin).origin !== portalOrigin)) {
   throw new Error('Pass the HTTPS origin of the member portal, without a trailing slash.');
 }
