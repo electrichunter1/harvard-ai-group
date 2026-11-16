@@ -3,8 +3,6 @@ export const links = {
   instagram: 'https://www.instagram.com/harvard.ai.group/',
   linkedin: 'https://www.linkedin.com/company/hcsai/',
   hcs: 'https://hcs.harvard.edu/initiatives/',
-  fellowship: 'https://ai.hcs.harvard.edu/fellowship',
-  bootcamp: 'https://ai.hcs.harvard.edu/bootcamp',
   email: 'mailto:ai@hcs.harvard.edu',
 };
 
@@ -43,5 +41,45 @@ export const projects = [
   { title: 'Combat Evaluations for Minecraft', author: 'Samuel Chen', type: 'Evaluation', description: 'An open benchmark for measuring how embodied agents fight and survive in Minecraft.', href: 'https://github.com/SamC1249/MineCombat-Evaluation', fellow: 'samuel-chen' },
   { title: 'Cascade', author: 'Andi Gu', type: 'Systems', description: 'Research into reducing the overhead of fault-tolerant quantum computation.', href: 'https://andigu.github.io/projects/cascade/', fellow: 'andi-gu' },
   { title: 'Neural Heterogeneity', author: 'Kyle Zheng', type: 'Modeling', description: 'An investigation of how diversity among spiking neurons shapes what a network can learn.', href: 'https://github.com/kylezheng12/neural-heterogeneity', fellow: 'kyle-zheng' },
-  { title: 'Sparse Autoencoders at Standard Training Budgets', author: 'Research article', type: 'Evaluation', description: 'A study of how learned sparse features compare with a random baseline.', href: 'https://husai.beehiiv.com/p/at-standard-training-budgets-sae-features-match-random-baseline-evidence-for-underconstrained-sparse' },
+  { title: 'Sparse Autoencoders at Standard Training Budgets', author: 'Bright Liu', type: 'Evaluation', description: 'A study of how learned sparse features compare with a random baseline.', href: 'https://husai.beehiiv.com/p/at-standard-training-budgets-sae-features-match-random-baseline-evidence-for-underconstrained-sparse' },
+];
+
+export const bootcampDays = [
+  ['Neural networks', 'Start with the basics of machine learning, then build a small neural network.'],
+  ['Language models', 'Learn how transformers process text and explore what autoregressive language models can do.'],
+  ['Computer vision', 'Work with convolutional networks and try a handwritten-digit classification exercise.'],
+  ['Reinforcement learning and ethics', 'Explore how agents learn from rewards and discuss the decisions that shape their behavior.'],
+  ['Project workshop', 'Develop a prototype in a small team and present a short demo.'],
+];
+
+const fellowNotes = {
+  'samuel-chen': 'Samuel’s fellowship work uses Minecraft combat to evaluate how agents behave in an interactive environment.',
+  'andi-gu': 'Andi studies quantum science and engineering at Harvard. His fellowship work explored neural decoders for quantum error correction.',
+  'kyle-zheng': 'Kyle’s fellowship work explores what spiking neural networks can learn when their neurons have different properties.',
+};
+
+const slug = title => title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+export const catalog = [
+  ...events.map(event => ({
+    kind: 'event', id: slug(event.title), title: event.title, category: event.type,
+    summary: event.description, date: event.iso, dateLabel: event.date,
+    link: event.href, image: event.image, alt: event.alt,
+  })),
+  {
+    kind: 'event', id: 'ai-trivia-night', title: trivia.title, category: 'Social',
+    summary: 'Teams of up to four compete in AI trivia at Harvard’s Science Center. Dinner and practice begin at 6 PM, with trivia at 6:30 PM. Open to Harvard affiliates with a Harvard ID.',
+    date: '2026-11-18', dateLabel: trivia.date, link: trivia.href,
+  },
+  ...projects.map(project => ({
+    kind: 'project', id: slug(project.title), title: project.title, category: project.type,
+    summary: project.description, byline: project.author, link: project.href,
+    profile: project.fellow,
+    ...(project.title === 'Cascade' && { image: 'cascade-surface-code.webp', alt: 'Surface-code lattice with an error chain highlighted in red' }),
+  })),
+  ...board.map(([title, summary]) => ({ kind: 'profile', id: slug(title), title, summary, category: 'Board' })),
+  ...projects.filter(project => project.fellow).map(project => ({
+    kind: 'profile', id: project.fellow, title: project.author, category: 'Spring 2026 Fellow',
+    summary: fellowNotes[project.fellow], image: `${project.fellow}.webp`, alt: project.author,
+    project: slug(project.title),
+  })),
 ];

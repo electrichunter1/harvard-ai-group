@@ -1,4 +1,5 @@
-import { board, events, links, projects, trivia } from './content.mjs';
+import { bootcampDays, catalog, events, links, projects, trivia } from './content.mjs';
+import { entryPath, publicEntryRoutes } from './entries.mjs';
 
 const button = (href, name, extra = '') => `<a class="button ${extra}" href="${href}">${name}</a>`;
 const textLink = (href, name) => `<a class="text-link" href="${href}">${name}</a>`;
@@ -25,6 +26,7 @@ function layout(route, title, description, main) {
   <link rel="preload" href="/assets/mulish.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/site.css">
   <script type="module" src="/assets/site.js"></script>
+  <script type="module" src="/assets/catalog.js"></script>
 </head>
 <body data-page="${route}">
   <a class="skip" href="#main">Skip to content</a>
@@ -47,21 +49,21 @@ function layout(route, title, description, main) {
 }
 
 function eventRow(event) {
-  return `<article class="archive-row" data-entry="${event.type}">
-    <div class="archive-meta"><time datetime="${event.iso}">${event.date}</time><span>${event.type}</span></div>
-    <div><h3><a href="${event.href}">${event.title}</a></h3><p>${event.description}</p></div>
+  return `<article class="archive-row" data-entry="${event.category}" data-id="${event.id}">
+    <div class="archive-meta"><time datetime="${event.date}">${event.dateLabel}</time><span>${event.category}</span></div>
+    <div><h3><a href="${entryPath(event)}">${event.title}</a></h3><p>${event.summary}</p></div>
   </article>`;
 }
 
 function projectRow(project) {
-  return `<article class="archive-row" data-entry="${project.type}">
-    <div class="archive-meta"><span>${project.type}</span><span>${project.author}</span></div>
-    <div><h3><a href="${project.href}">${project.title}</a></h3><p>${project.description}</p></div>
+  return `<article class="archive-row" data-entry="${project.category}" data-id="${project.id}">
+    <div class="archive-meta"><span>${project.category}</span><span>${project.byline}</span></div>
+    <div><h3><a href="${entryPath(project)}">${project.title}</a></h3><p>${project.summary}</p></div>
   </article>`;
 }
 
 function archive(items, render, filters, label) {
-  return `<div class="archive" data-archive><div class="filters" role="group" aria-label="Filter ${label}" hidden>${['All', ...filters].map(filter => `<button type="button" data-filter="${filter}" aria-pressed="${filter === 'All'}">${filter}</button>`).join('')}</div><p class="visually-hidden" role="status" data-filter-status></p>${items.map(render).join('')}</div>`;
+  return `<div class="archive" data-archive data-catalog="${label}"><div class="filters" role="group" aria-label="Filter ${label}" hidden>${['All', ...filters].map(filter => `<button type="button" data-filter="${filter}" aria-pressed="${filter === 'All'}">${filter}</button>`).join('')}</div><p class="visually-hidden" role="status" data-filter-status></p><div class="archive-items" data-items>${items.map(render).join('')}</div></div>`;
 }
 
 function notice() {
@@ -88,7 +90,7 @@ const home = `
           <canvas class="model-canvas" aria-label="3D Harvard AI Group emblem. Drag or use arrow keys to turn it. Press Home to reset." tabindex="0" hidden></canvas>
         </div>
         <figcaption>
-          <a href="${events[3].href}">Spring AI Tour, 2025</a>
+          <a href="${entryPath(catalog[3])}">Spring AI Tour, 2025</a>
           <button class="model-motion" type="button" data-motion aria-label="Pause emblem animation" hidden>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path class="pause-icon" d="M6 3v10m4-10v10"/><path class="play-icon" d="m6 3 7 5-7 5Z"/></svg>
           </button>
@@ -137,47 +139,48 @@ const fellowPrint = `<figure class="hero-visual poster-print">
   <figcaption><a href="#fellows">Spring 2026 fellows</a></figcaption>
 </figure>`;
 
-const fellowship = `${posterIntro('AI Fellowship', 'Funding and technical mentorship for Harvard students pursuing their own AI research or software projects.', button(links.fellowship, 'Application details', 'button-light') + textLink('/projects/', 'See fellows’ work'), fellowPrint)}
+const fellowship = `${posterIntro('AI Fellowship', 'Funding and technical mentorship for Harvard students pursuing their own AI research or software projects.', button('/fellowship/#apply', 'Application details', 'button-light') + textLink('/projects/', 'See fellows’ work'), fellowPrint)}
 <div class="shell program-content">
   <section class="split"><h2>How it works</h2><p class="intro">Funding can cover compute, API credits, and other project costs. Fellows meet with our technical directors every two weeks to work toward research or software they can share publicly.</p></section>
-  <section id="fellows" aria-labelledby="fellows-title"><div class="section-head"><h2 id="fellows-title">Spring 2026 fellows</h2></div><ul class="fellows-list">${fellows.map(project => `<li><a href="${links.fellowship}/${project.fellow}">${project.author}</a><p>${project.title}</p></li>`).join('')}</ul></section>
-  ${faq([['What can I propose?', 'Proposals can include original research, open-source tools, and applications. Explain what you want to build or learn and how you plan to do it.'], ['When can I apply?', `Check the <a href="${links.fellowship}">application page</a> for the latest cycle and eligibility details.`]])}
+  <section class="split" id="apply"><h2>Applying</h2><div><p>Tell us the question you want to explore, how you’ll approach it, and what resources you’d need. The next application window will be announced when dates are available.</p><p>${textLink(links.mailing, 'Get application updates')}</p></div></section>
+  <section id="fellows" aria-labelledby="fellows-title"><div class="section-head"><h2 id="fellows-title">Spring 2026 fellows</h2></div><ul class="fellows-list">${fellows.map(project => `<li><a href="/team/${project.fellow}/">${project.author}</a><p>${project.title}</p></li>`).join('')}</ul></section>
+  ${faq([['What can I propose?', 'Proposals can include original research, open-source tools, and applications. Explain what you want to build or learn and how you plan to do it.'], ['When can I apply?', 'Join the mailing list above to hear when the next application cycle opens.']])}
 </div>`;
 
 const bootcampPrint = `<div class="hero-visual poster-print poster-outline">
   <h2>Five-day outline</h2>
-  <ol>${['Neural networks', 'Language models', 'Computer vision', 'Reinforcement learning and ethics', 'Project workshop'].map((topic, index) => `<li><span>Day ${index + 1}</span><span>${topic}</span></li>`).join('')}</ol>
+  <ol>${bootcampDays.map(([topic], index) => `<li><span>Day ${index + 1}</span><span>${topic}</span></li>`).join('')}</ol>
 </div>`;
 
-const bootcamp = `${posterIntro('AI Bootcamp', 'A five-day online program for high school students, taught by Harvard undergraduate and graduate-level instructors.', button(links.bootcamp, 'Bootcamp details', 'button-light') + textLink(`${links.bootcamp}/schedule`, 'See the schedule'), bootcampPrint)}
+const bootcamp = `${posterIntro('AI Bootcamp', 'A five-day online program for high school students, taught by Harvard undergraduate and graduate-level instructors.', button('/bootcamp/#details', 'Bootcamp details', 'button-light') + textLink('/bootcamp/schedule/', 'See the schedule'), bootcampPrint)}
 <div class="shell program-content">
-  <section class="split"><h2>What you’ll do</h2><p class="intro">Follow guided exercises and work on a small research project. The week ends with a workshop where you can turn an idea into a prototype and share what you built.</p></section>
-  ${faq([['Who is it for?', 'The bootcamp is designed for high school students interested in artificial intelligence and machine learning. Visit the program page for eligibility and application details.'], ['Where does it take place?', 'Sessions are held online. Check the program schedule for cohort dates and times.'], ['Who can I ask about the program?', 'Email <a href="mailto:ai@hcs.harvard.edu?subject=AI%20Bootcamp">ai@hcs.harvard.edu</a> with questions about the schedule, curriculum, or application process.']])}
+  <section class="split" id="details"><h2>What you’ll do</h2><p class="intro">Follow guided exercises and work on a small research project. The week ends with a workshop where you can turn an idea into a prototype and share what you built.</p></section>
+  ${faq([['Who is it for?', 'The bootcamp is designed for high school students interested in artificial intelligence and machine learning. Email the group for upcoming application dates and eligibility details.'], ['Where does it take place?', 'Sessions are held online. The schedule shows what the last published summer cohort covered.'], ['Who can I ask about the program?', 'Email <a href="mailto:ai@hcs.harvard.edu?subject=AI%20Bootcamp">ai@hcs.harvard.edu</a> with questions about the schedule, curriculum, or application process.']])}
 </div>`;
 
 const eventPage = `${posterIntro('Events', 'Join us for faculty dinners, campus socials, and our spring AI tour.', button(links.mailing, 'Get event updates', 'button-light'), posterPhoto({
-  file: events[2].image, width: 1380, height: 1035, alt: events[2].alt, href: events[2].href,
+  file: events[2].image, width: 1380, height: 1035, alt: events[2].alt, href: entryPath(catalog[2]),
   caption: 'Dinner with Professor Sitan Chen · February 2026',
 }))}
 <div class="shell">
   <section class="featured-event" id="trivia" data-event data-expiry="${trivia.ends}" data-cutoff="${trivia.cutoff}">
     <div><p class="meta" data-event-status>${trivia.date}</p><h2>${trivia.title}</h2><p>Science Center Hall B. Dinner and practice at 6 PM, trivia at 6:30 PM. Come solo or bring a team of up to four. Open to Harvard affiliates with a Harvard ID.</p></div>
-    <div class="page-actions"><a class="button" href="${trivia.rsvp}" data-rsvp hidden>RSVP for dinner</a>${textLink(trivia.href, 'Event announcement')}</div>
+    <div class="page-actions"><a class="button" href="${trivia.rsvp}" data-rsvp hidden>RSVP for dinner</a>${textLink('/events/ai-trivia-night/', 'Event details')}</div>
   </section>
-  <section class="section" aria-labelledby="event-archive-title"><div class="section-head"><h2 id="event-archive-title">Event archive</h2></div>${archive(events, eventRow, ['Social', 'Talk', 'Trip'], 'events')}</section>
+  <section class="section" aria-labelledby="event-archive-title"><div class="section-head"><h2 id="event-archive-title">Event archive</h2></div>${archive(catalog.filter(entry => entry.kind === 'event').sort((a, b) => b.date.localeCompare(a.date)), eventRow, ['Social', 'Talk', 'Trip'], 'event')}</section>
 </div>`;
 
 const projectPage = `${posterIntro('Student projects', 'See what our fellows and contributors are researching, testing, and sharing as open source.', button('/fellowship/', 'Explore the fellowship', 'button-light'), posterPhoto({
   file: 'cascade-surface-code.webp', width: 820, height: 790, diagram: true,
-  alt: 'A surface-code lattice with an error chain highlighted in red', href: projects[1].href,
+  alt: 'A surface-code lattice with an error chain highlighted in red', href: '/projects/cascade/',
   caption: 'Cascade · Quantum error correction',
 }))}
 <div class="shell">
-  <section class="section archive-page" aria-labelledby="archive-title"><div class="section-head"><h2 id="archive-title">Project archive</h2></div>${archive(projects, projectRow, ['Evaluation', 'Systems', 'Modeling'], 'projects')}</section>
+  <section class="section archive-page" aria-labelledby="archive-title"><div class="section-head"><h2 id="archive-title">Project archive</h2></div>${archive(catalog.filter(entry => entry.kind === 'project'), projectRow, ['Evaluation', 'Systems', 'Modeling'], 'project')}</section>
 </div>`;
 
 const contactPage = `${posterIntro('Get involved', 'Come to an event or sign up to hear about campus events and application rounds.', button(links.mailing, 'Join the mailing list', 'button-light') + textLink('/events/', 'Explore events'), posterPhoto({
-  file: events[1].image, width: 1380, height: 1035, alt: events[1].alt, href: events[1].href,
+  file: events[1].image, width: 1380, height: 1035, alt: events[1].alt, href: entryPath(catalog[1]),
   caption: 'HUSAI × HUMIC Mixer · March 2026',
 }))}
 <div class="shell">
@@ -190,16 +193,24 @@ const contactPage = `${posterIntro('Get involved', 'Come to an event or sign up 
 
 const teamPage = `${posterIntro('Our people', 'Harvard AI Group is run by students. Our board organizes campus events and supports our fellowship and bootcamp programs.', button('/contact/', 'Get in touch', 'button-light'), posterPhoto({
   file: 'bay-area.webp', width: 1500, height: 816, alt: 'Harvard AI Group students gathered outdoors during the 2024 Spring AI Tour',
-  href: events[4].href, caption: 'Spring AI Tour, 2024',
+  href: entryPath(catalog[4]), caption: 'Spring AI Tour, 2024',
 }))}
 <div class="shell">
   <section class="section board" aria-labelledby="board-title">
-    <div class="section-head"><h2 id="board-title">Board of Directors</h2><p>Fall 2026</p></div>
-    <ul class="board-list">${board.map(([name, field]) => `<li><h3>${name}</h3><p>${field}</p></li>`).join('')}</ul>
+    <div class="section-head"><h2 id="board-title">Board and members</h2></div>
+    <ul class="board-list" data-catalog="profile" data-items>${catalog.filter(entry => entry.kind === 'profile').map(entry => `<li data-id="${entry.id}"><h3><a href="${entryPath(entry)}">${entry.title}</a></h3><p>${entry.category === 'Board' ? entry.summary : entry.category}</p></li>`).join('')}</ul>
   </section>
 </div>`;
 
+const schedule = `<section class="hero detail-banner"><div class="shell"><h1>Bootcamp schedule</h1></div></section>
+<div class="shell program-content">
+  <section class="split"><h2>Five days online</h2><div><p>Here’s how the June 2026 cohorts spent the week. Dates and session times for the next cohort will be announced separately.</p>${textLink('/bootcamp/', 'Back to Bootcamp')}</div></section>
+  <section class="schedule-list" aria-label="Five-day curriculum">${bootcampDays.map(([topic, description], index) => `<article><p class="meta">Day ${index + 1}</p><h2>${topic}</h2><p>${description}</p></article>`).join('')}</section>
+</div>`;
+
 export const pages = {
+  ...publicEntryRoutes(layout),
+  '/bootcamp/schedule/': layout('/bootcamp/schedule/', 'Bootcamp schedule · Harvard AI Group', 'See a day-by-day outline of the AI Bootcamp.', schedule),
   '/': layout('/', 'Harvard AI Group', 'A student-run community for AI research, education, and events at Harvard.', home),
   '/fellowship/': layout('/fellowship/', 'Fellowship · Harvard AI Group', 'Funding and technical mentorship for AI projects at Harvard.', fellowship),
   '/bootcamp/': layout('/bootcamp/', 'Bootcamp · Harvard AI Group', 'A five-day online AI program for high school students.', bootcamp),

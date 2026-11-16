@@ -4,8 +4,12 @@ import { parseArgs } from 'node:util';
 import { pages } from './src/pages.mjs';
 import { controls, contours, ink } from './src/logo.mjs';
 
-const { values } = parseArgs({ options: { 'pages-base': { type: 'string' } } });
+const { values } = parseArgs({ options: { 'pages-base': { type: 'string' }, 'portal-origin': { type: 'string' } } });
 const pagesBase = values['pages-base'];
+const portalOrigin = values['portal-origin'] || '';
+if (portalOrigin && (!portalOrigin.startsWith('https://') || new URL(portalOrigin).origin !== portalOrigin)) {
+  throw new Error('Pass the HTTPS origin of the member portal, without a trailing slash.');
+}
 if (pagesBase && !/^\/[a-z0-9][a-z0-9._-]*\/$/i.test(pagesBase)) {
   throw new Error('Pass the repository path with leading and trailing slashes, for example /harvard-ai-group/.');
 }
@@ -14,9 +18,10 @@ const assets = join(output, 'assets');
 
 await mkdir(assets, { recursive: true });
 await cp('src/assets', assets, { recursive: true });
-for (const file of ['site.css', 'site.js', 'sculpture.js', 'logo.mjs']) {
+for (const file of ['site.css', 'site.js', 'sculpture.js', 'logo.mjs', 'catalog.js']) {
   await cp(`src/${file}`, join(assets, file));
 }
+await writeFile(join(assets, 'catalog-config.js'), 'export const portalOrigin = ' + JSON.stringify(portalOrigin) + ';\n');
 
 const xy = ([x, y]) => `${x.toFixed(4)},${(-y).toFixed(4)}`;
 const paths = contours.map(points => {

@@ -125,6 +125,14 @@ h2 { font-size: clamp(26px, 3vw, 43px); font-weight: 650; line-height: 1.06; let
 .filters button:hover { background: #e7ecff; }
 .filters button[aria-pressed="true"] { background: var(--blue); color: white; }
 .archive { display: grid; gap: clamp(21px, 3vw, 39px); }
+.archive-items, .schedule-list { display: grid; gap: clamp(21px, 3vw, 39px); }
+.detail-banner { padding-block: clamp(32px, 7vw, 92px); }
+.detail-banner h1 { max-width: 20ch; font-size: clamp(35px, 7vw, 77px); line-height: 1.02; overflow-wrap: anywhere; }
+.detail-banner .meta { color: inherit; margin-bottom: 14px; }
+.detail-content { display: grid; gap: 26px; padding-block: clamp(28px, 5vw, 64px); }
+.entry-body { display: grid; gap: 20px; max-width: 70ch; overflow-wrap: anywhere; }
+.entry-body > p { white-space: pre-line; }
+.detail-image { display: block; max-width: 100%; width: auto; max-height: 480px; height: auto; }
 .archive-row { display: grid; grid-template-columns: minmax(125px, 0.32fr) minmax(0, 1fr); align-items: baseline; gap: 8px 30px; }
 .archive-meta { display: grid; gap: 4px; font-size: 0.84rem; color: #53607c; }
 .archive-meta :first-child { font-weight: 600; color: var(--blue); }

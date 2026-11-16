@@ -22,13 +22,13 @@ header.addEventListener('keydown', event => {
 
 for (const archive of document.querySelectorAll('[data-archive]')) {
   const filters = archive.querySelector('.filters');
-  const entries = [...archive.querySelectorAll('[data-entry]')];
   const status = archive.querySelector('[data-filter-status]');
   filters.hidden = false;
   filters.addEventListener('click', event => {
     const selected = event.target.closest('[data-filter]');
     if (!selected) return;
     const filter = selected.dataset.filter;
+    const entries = [...archive.querySelectorAll('[data-entry]')];
     for (const option of filters.querySelectorAll('button')) option.setAttribute('aria-pressed', String(option === selected));
     for (const entry of entries) entry.hidden = filter !== 'All' && entry.dataset.entry !== filter;
     const count = entries.filter(entry => !entry.hidden).length;
