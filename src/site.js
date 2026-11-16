@@ -45,6 +45,22 @@ for (const item of document.querySelectorAll('[data-event]')) {
   item.querySelector('[data-rsvp]').hidden = now >= Date.parse(item.dataset.cutoff);
 }
 
+if (!motion.matches && 'IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.dataset.revealState = entry.target.matches(':focus-within') ? 'done' : 'shown';
+      observer.unobserve(entry.target);
+    }
+  }, { rootMargin: '0px 0px -24px 0px' });
+
+  for (const element of document.querySelectorAll('[data-reveal="scroll"], [data-reveal="media"]')) {
+    if (element.hidden || element.matches(':target') || element.querySelector(':target')) continue;
+    element.dataset.revealState = 'waiting';
+    observer.observe(element);
+  }
+}
+
 const sculpture = document.querySelector('[data-emblem]');
 if (sculpture) {
   import('./sculpture.js').then(({ mountSculpture }) => mountSculpture(sculpture, motion));

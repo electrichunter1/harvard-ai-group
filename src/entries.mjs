@@ -16,9 +16,9 @@ function detailPage(kind, entry) {
     ${entry.link ? `<p><a class="text-link" href="${escape(entry.link)}">${kind === 'event' ? 'Original event announcement' : 'Read the original work'}</a></p>` : ''}` :
     '<p role="status">This entry is currently unavailable.</p>';
   return `<article data-detail="${kind}" data-id="${entry?.id ?? ''}">
-    <header class="hero detail-banner"><div class="shell"><p class="meta" data-entry-label>${escape(entry?.dateLabel || entry?.category || '')}</p><h1 data-entry-title>${escape(heading)}</h1></div></header>
+    <header class="hero detail-banner"><div class="shell" data-reveal="intro"><p class="meta" data-entry-label>${escape(entry?.dateLabel || entry?.category || '')}</p><h1 data-entry-title>${escape(heading)}</h1></div></header>
     <div class="shell detail-content"><p><a class="text-link" href="/${sections[kind]}/">Back to ${sectionNames[kind].toLowerCase()}</a></p>
-      <div class="entry-body" data-entry-body>${content.replace(/^ +$/gm, '')}</div>
+      <div class="entry-body" data-reveal="scroll" data-entry-body>${content.replace(/^ +$/gm, '')}</div>
     </div>
   </article>`;
 }
