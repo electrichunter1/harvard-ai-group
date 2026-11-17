@@ -235,13 +235,21 @@ h2 { font-size: clamp(26px, 3vw, 43px); font-weight: 650; line-height: 1.06; let
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 160ms;
+    animation-timing-function: ease-out;
+  }
+
   [data-reveal] { --reveal-distance: clamp(18px, 3vw, 36px); }
   [data-reveal="media"] { --reveal-delay: 80ms; }
-  [data-reveal-state="waiting"]:not(:focus-within):not(:target) {
+  :root:not([data-page-fade="running"]) [data-reveal-state="waiting"]:not(:focus-within):not(:target) {
     opacity: 0;
     translate: 0 var(--reveal-distance);
   }
-  [data-reveal="intro"], [data-reveal-state="shown"] {
+  :root:not([data-page-fade]) [data-reveal="intro"], [data-reveal-state="shown"] {
     animation: fade-up 1.2s cubic-bezier(.445, .05, .55, .95) var(--reveal-delay, 0ms) backwards;
   }
 }

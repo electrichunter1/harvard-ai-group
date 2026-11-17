@@ -46,16 +46,19 @@ for (const item of document.querySelectorAll('[data-event]')) {
 }
 
 if (!motion.matches && 'IntersectionObserver' in window) {
+  const page = document.documentElement;
   const observer = new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
-      entry.target.dataset.revealState = entry.target.matches(':focus-within') ? 'done' : 'shown';
+      const alreadyVisible = page.dataset.pageFade === 'running' || entry.target.matches(':focus-within');
+      entry.target.dataset.revealState = alreadyVisible ? 'done' : 'shown';
       observer.unobserve(entry.target);
     }
   }, { rootMargin: '0px 0px -24px 0px' });
 
   for (const element of document.querySelectorAll('[data-reveal="scroll"], [data-reveal="media"]')) {
     if (element.hidden || element.matches(':target') || element.querySelector(':target')) continue;
+    if (page.hasAttribute('data-page-fade') && element.getBoundingClientRect().top < window.innerHeight) continue;
     element.dataset.revealState = 'waiting';
     observer.observe(element);
   }

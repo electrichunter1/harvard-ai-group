@@ -27,6 +27,15 @@ function layout(route, title, description, main) {
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
   <link rel="preload" href="/assets/mulish.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/site.css">
+  <script>
+    addEventListener('pagereveal', ({ viewTransition }) => {
+      if (!viewTransition) return;
+      const page = document.documentElement;
+      page.dataset.pageFade = 'running';
+      const finish = () => { page.dataset.pageFade = 'done'; };
+      viewTransition.finished.then(finish, finish);
+    });
+  </script>
   <script type="module" src="/assets/site.js"></script>
   <script type="module" src="/assets/catalog.js"></script>
 </head>
