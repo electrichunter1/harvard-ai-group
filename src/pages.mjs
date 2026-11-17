@@ -41,16 +41,14 @@ function layout(route, title, description, main) {
 </head>
 <body data-page="${route}">
   <a class="skip" href="#main">Skip to content</a>
-  <div class="site-header">
-    <div class="draft-status"><div class="shell">Draft for review</div></div>
-    <header class="masthead"><div class="shell masthead-inner">
-      ${brand}
-      <a class="bootcamp-shortcut" href="${bootcampPath}"${currentPage(bootcampPath)}>Bootcamp</a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" hidden>Menu <span aria-hidden="true">+</span></button>
-      <nav id="primary-nav" aria-label="Main navigation">${navigation.map(([href, label]) => `<a${href === bootcampPath ? ' class="desktop-bootcamp"' : ''} href="${href}"${currentPage(href)}>${label}</a>`).join('')}<a class="mobile-join" href="/contact/"${currentPage('/contact/')}>Get involved</a></nav>
-      <a class="header-join" href="/contact/">Get involved</a>
-    </div></header>
-  </div>
+  <div class="draft-status"><div class="shell">Draft for review</div></div>
+  <header class="masthead"><div class="shell masthead-inner">
+    ${brand}
+    <a class="bootcamp-shortcut" href="${bootcampPath}"${currentPage(bootcampPath)}>Bootcamp</a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="primary-nav" hidden>Menu <span aria-hidden="true">+</span></button>
+    <nav id="primary-nav" aria-label="Main navigation">${navigation.map(([href, label]) => `<a${href === bootcampPath ? ' class="desktop-bootcamp"' : ''} href="${href}"${currentPage(href)}>${label}</a>`).join('')}<a class="mobile-join" href="/contact/"${currentPage('/contact/')}>Get involved</a></nav>
+    <a class="header-join" href="/contact/">Get involved</a>
+  </div></header>
   <main id="main"${Object.hasOwn(siteCopy, area) ? ` data-copy-area="${area}"` : ''}>${main}</main>
   <footer class="footer" id="footer">
     <div class="shell footer-inner">${brand}
